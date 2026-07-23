@@ -212,8 +212,8 @@
           </div>
         </div>
         <div class="hint" style="margin-top:8px;">
-          هذه الخطوة اختيارية فقط لمن لا يملك مكان رفع خاص به. الخدمة (Cloudinary) لها رصيد شهري مجاني محدود،
-          فمناسبة للمقاطع القصيرة وليس أفلاماً كاملة بحجم جيجابايتات. أي نص كتبته في الخانة فوق قبل الرفع (زي "كل سنة وانت طيب يا يوسف")
+          هذه الخطوة اختيارية فقط لمن لا يملك مكان رفع خاص به. الخدمة (Firebase Storage) بتوفّر 5GB تخزين
+          و1GB تنزيل يومياً مجاناً، فمناسبة لمعظم الاستخدامات العادية. أي نص كتبته في الخانة فوق قبل الرفع (زي "كل سنة وانت طيب يا يوسف")
           هيتحوّل تلقائياً لرسالة ترحيب في صفحة المفاجأة، وهيتحط رابطها في خانة النص وتقدر تعدّل عليه بعدين.
         </div>
       </div>
@@ -248,11 +248,11 @@
 </div>
 
 <script>
-/* ================== إعدادات Cloudinary ==================
-   استبدلها ببيانات حسابك المجاني من https://cloudinary.com إذا أردت،
-   وتأكد أن الـ Upload Preset (Unsigned) يسمح برفع image + video + raw. */
-const CLOUDINARY_CLOUD_NAME = "zevx0ku5";
-const CLOUDINARY_UPLOAD_PRESET = "ljkxmauu";
+/* ================== إعدادات Firebase Storage ==================
+   حط قيمة storageBucket بتاعة مشروعك هنا (تلاقيها في: إعدادات المشروع → General → Your apps → firebaseConfig).
+   شكلها عادة: "اسم-المشروع.appspot.com"
+   وتأكد إن قواعد الأمان (Storage Rules) مضبوطة على السماح بالقراءة/الكتابة تحت مسار qr-events/ */
+const FIREBASE_STORAGE_BUCKET = "اكتب_هنا_storageBucket_بتاعك";
 
 const TEXT_DIRECT_LIMIT = 900; // بعد هذا الحد تصبح كثافة الكود عالية جداً للمسح المريح
 
@@ -300,39 +300,41 @@ function removeFile(idx){
   renderFileList();
 }
 
-/* ---------- رفع ملف واحد إلى Cloudinary مع تتبع التقدّم ---------- */
-function uploadToCloudinary(file, resourceType, onProgress){
+/* ---------- رفع ملف واحد إلى Firebase Storage مع تتبع التقدّم (عبر REST API مباشرة، بدون أي SDK) ---------- */
+function uploadToFirebase(file, pathPrefix, onProgress){
   return new Promise((resolve, reject)=>{
-    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
-    const formData = new FormData();
-    formData.append("file", file, file.name);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    if(!FIREBASE_STORAGE_BUCKET || FIREBASE_STORAGE_BUCKET.includes("اكتب_هنا")){
+      reject(new Error("لسه ماحطتش storageBucket بتاع مشروع Firebase في أعلى الكود"));
+      return;
+    }
+    const safeName = `${Date.now()}-${file.name}`.replace(/[^\w.\-\u0600-\u06FF]/g, "_");
+    const fullPath = `${pathPrefix}/${safeName}`;
+    const encodedPath = encodeURIComponent(fullPath);
+    const url = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o?uploadType=media&name=${encodedPath}`;
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (e)=>{
       if(e.lengthComputable && onProgress) onProgress(Math.round((e.loaded/e.total)*100));
     };
     xhr.onload = ()=>{
-      try{
-        const res = JSON.parse(xhr.responseText);
-        if(xhr.status >= 200 && xhr.status < 300 && res.secure_url){
-          resolve(res.secure_url);
-        }else{
-          const apiMsg = res.error ? res.error.message : "بدون رسالة من الخادم";
-          reject(new Error(`(HTTP ${xhr.status}) ${apiMsg}`));
-        }
-      }catch(err){
-        reject(new Error(`(HTTP ${xhr.status}) رد غير متوقع من Cloudinary: ${xhr.responseText.slice(0,200)}`));
+      if(xhr.status >= 200 && xhr.status < 300){
+        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodedPath}?alt=media`;
+        resolve(downloadUrl);
+      }else{
+        let apiMsg = xhr.responseText.slice(0,200);
+        try{ apiMsg = JSON.parse(xhr.responseText).error.message; }catch(e){}
+        reject(new Error(`(HTTP ${xhr.status}) ${apiMsg}`));
       }
     };
     xhr.onerror = ()=> reject(new Error(
-      "تعذّر الوصول لسيرفر Cloudinary إطلاقاً (قبل أي رد HTTP). الأسباب الشائعة: " +
-      "1) الحساب متوقف أو تجاوز الرصيد المجاني الشهري (تأكد من صفحة Plan). " +
-      "2) اسم الحساب Cloud Name غلط. " +
+      "تعذّر الوصول لسيرفر Firebase Storage إطلاقاً (قبل أي رد HTTP). الأسباب الشائعة: " +
+      "1) storageBucket غلط. " +
+      "2) قواعد الأمان (Rules) في Storage مش بتسمح بالكتابة على مسار qr-events/. " +
       "3) لا يوجد اتصال إنترنت مستقر."
     ));
-    xhr.send(formData);
+    xhr.send(file);
   });
 }
 
@@ -504,8 +506,8 @@ async function handleMediaUpload(){
   const hasFiles = pickedFiles.length > 0;
   const hasAudio = !!recordedAudioBlob;
   if(!hasFiles && !hasAudio){ setStatus("اختر ملفاً أو سجّل رسالة صوتية أولاً", true); return; }
-  if(CLOUDINARY_UPLOAD_PRESET.includes("اكتب_هنا")){
-    setStatus("برجاء ضبط بيانات Cloudinary في أعلى الكود أولاً", true);
+  if(!FIREBASE_STORAGE_BUCKET || FIREBASE_STORAGE_BUCKET.includes("اكتب_هنا")){
+    setStatus("برجاء ضبط storageBucket بتاع Firebase في أعلى الكود أولاً", true);
     return;
   }
 
@@ -521,7 +523,7 @@ async function handleMediaUpload(){
     const type = file.type.startsWith("video") ? "video" : "image";
     document.getElementById("status-"+i).textContent = "جاري الرفع...";
     try{
-      const url = await uploadToCloudinary(file, type, (pct)=>{
+      const url = await uploadToFirebase(file, "qr-events", (pct)=>{
         document.getElementById("bar-"+i).style.width = pct + "%";
       });
       document.getElementById("status-"+i).textContent = "تم ✅";
@@ -538,8 +540,7 @@ async function handleMediaUpload(){
     setStatus("جاري رفع الرسالة الصوتية...");
     try{
       const audioFile = new File([recordedAudioBlob], `voice-${Date.now()}.webm`, {type:"audio/webm"});
-      // Cloudinary تتعامل مع الملفات الصوتية عبر نفس مسار الفيديو
-      const url = await uploadToCloudinary(audioFile, "video", null);
+      const url = await uploadToFirebase(audioFile, "qr-events", null);
       uploaded.push({url, type:"audio", name:"رسالة صوتية"});
     }catch(err){
       setStatus(`فشل رفع الرسالة الصوتية: ${err.message}`, true);
@@ -558,7 +559,7 @@ async function handleMediaUpload(){
       const galleryHTML = buildGalleryHTML(uploaded, eventTitle, personalMessage);
       const blob = new Blob([galleryHTML], {type:"text/html"});
       const galleryFile = new File([blob], `surprise-${Date.now()}.html`, {type:"text/html"});
-      finalLink = await uploadToCloudinary(galleryFile, "raw", null);
+      finalLink = await uploadToFirebase(galleryFile, "qr-events", null);
     }catch(err){
       setStatus("تعذّر إنشاء صفحة المفاجأة، تم استخدام رابط أول ملف بدلاً منها (باقي الروابط تحت)", true);
     }
