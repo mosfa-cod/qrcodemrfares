@@ -136,9 +136,7 @@
   .perforation::after{ left:-11px; }
   .qr-zone{ display:flex; justify-content:center; padding:24px; }
   .qr-zone img{ border-radius:14px; padding:12px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-  .ticket .actions{ display:flex; flex-wrap:wrap; gap:10px; padding:0 20px 6px; }
-  .ticket .actions .btn{ flex:1 1 45%; width:auto; }
-  .mobile-tip{ margin:0 20px 18px; font-size:12px; color:var(--muted); text-align:center; }
+  .ticket .actions{ display:flex; gap:10px; padding:0 20px 22px; }
   .link-box{
     margin:0 20px 18px; background:rgba(0,0,0,.25); border:1px solid var(--border);
     border-radius:12px; padding:10px 12px; font-size:12.5px; word-break:break-all; color:var(--muted);
@@ -157,20 +155,6 @@
   .note b{ color:var(--gold); }
 
   footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:26px; }
-
-  /* نافذة عرض الكود بالحجم الكامل — الحل الأضمن للحفظ على الموبايل */
-  .qr-modal-overlay{
-    display:none; position:fixed; inset:0; background:rgba(10,6,20,.94);
-    z-index:999; align-items:center; justify-content:center; padding:24px;
-    flex-direction:column; text-align:center;
-  }
-  .qr-modal-overlay.show{ display:flex; }
-  .qr-modal-overlay img{
-    width:min(85vw,340px); height:auto; border-radius:16px; background:#fff; padding:16px;
-    box-shadow:0 10px 40px rgba(0,0,0,.5);
-  }
-  .qr-modal-overlay p{ color:var(--ink); font-size:14px; margin:18px 0 4px; max-width:320px; line-height:1.9; }
-  .qr-modal-overlay .close-modal{ width:auto; padding:10px 26px; margin-top:14px; }
 </style>
 </head>
 <body>
@@ -196,12 +180,13 @@
       <div class="hint" id="textCounter">0 حرف</div>
     </div>
 
-    <button class="btn btn-main" id="generateBtn" onclick="handleGenerate()">✨ اصنع الكود دلوقتي</button>
+    <button class="btn btn-main" id="generateBtn" onclick="handleGenerate()">✨ اصنع الكود من الخانة دي</button>
     <div id="statusMessage"></div>
 
     <div class="note">
-      💡 هذا الزر ذكي: لو مسجّل رسالة صوتية أو مختار صور/فيديوهات تحت 👇، هيرفعهم تلقائياً ويبني صفحة مفاجأة فيها العنوان والرسالة والصوت والصور كلهم مع بعض، ويحط الكود عليها.
-      لو مفيش صور ولا صوت، هياخد اللي مكتوب في الخانة فوق زي ما هو (رسالة نصية، أو رابط جاهز زي يوتيوب/درايف/جوجل فوتوز) ويحوّله لكود مباشرة — من غير اعتماد على خدمة معيّنة داخل التطبيق نفسه.
+      💡 <b>ليس عندك رابط جاهز؟</b> رفع الفيديو/الصورة بنفسك أولاً بأي أداة مجانية تفضّلها هو الحل الأكثر استقراراً وغير المرتبط بأداة واحدة:
+      يوتيوب (كفيديو "غير مُدرج / Unlisted")، ألبوم جوجل فوتوز مشترك، رابط مشاركة من جوجل درايف، أو حتى رفعه في قناة تليجرام ونسخ رابط الرسالة.
+      بعدها الصق الرابط في الخانة فوق واضغط "اصنع الكود" — مفيش أي اعتماد على خدمة معيّنة داخل التطبيق نفسه.
     </div>
 
     <details class="backup-links" style="margin-top:14px;">
@@ -213,8 +198,7 @@
         </label>
         <input type="file" id="mediaInput" accept="image/*,video/*" multiple onchange="onFilesPicked()">
         <div class="file-list" id="fileList"></div>
-        <div class="hint" style="margin-top:10px;">✅ اختيار الملفات هنا كفاية. ارجع لزر "اصنع الكود دلوقتي" فوق وهو اللي هيرفعهم وهو اللي هيبني الكود.</div>
-        <button class="btn btn-ghost" id="uploadBtn" onclick="handleGenerate()" style="margin-top:12px;">⬆️ ارفع وابني الكود الآن</button>
+        <button class="btn btn-ghost" id="uploadBtn" onclick="handleMediaUpload()" style="margin-top:12px;">⬆️ ارفع واحصل على رابط تلقائياً</button>
 
         <div style="margin-top:18px; padding-top:16px; border-top:1px dashed var(--border);">
           <label>🎤 أو سجّل رسالة صوتية بصوتك (تهنئة، دعوة، أي كلمة تحب توصّلها)</label>
@@ -246,13 +230,14 @@
     <div class="qr-zone" id="qrcode"></div>
     <div class="link-box">
       <span id="finalLinkText">—</span>
-      <button class="btn btn-ghost btn-small" onclick="copyText(document.getElementById('finalLinkText').dataset.full || document.getElementById('finalLinkText').innerText)">نسخ</button>
+      <span style="display:flex; gap:6px;">
+        <button class="btn btn-ghost btn-small" onclick="window.open(document.getElementById('finalLinkText').dataset.full, '_blank')">فتح</button>
+        <button class="btn btn-ghost btn-small" onclick="copyText(document.getElementById('finalLinkText').dataset.full)">نسخ</button>
+      </span>
     </div>
     <div class="actions">
       <button class="btn btn-main" onclick="downloadQR()">⬇️ تحميل صورة الكود</button>
-      <button class="btn btn-ghost" onclick="openQrModal()">📱 عرض بالحجم الكامل (للموبايل)</button>
     </div>
-    <p class="mobile-tip">📌 على الموبايل: لو زر التحميل ما اشتغلش، استخدم "عرض بالحجم الكامل" ثم اضغط مطوّلاً على الصورة واختر "حفظ الصورة"</p>
     <details class="backup-links" id="backupLinks" style="display:none; padding:0 20px 20px;">
       <summary>روابط منفصلة احتياطية لكل ملف</summary>
       <div id="backupLinksList"></div>
@@ -260,13 +245,6 @@
   </div>
 
   <footer>BIBO_GEN_STUDIO 🤖 بيبو جِن ستوديو</footer>
-</div>
-
-<!-- نافذة الحجم الكامل -->
-<div class="qr-modal-overlay" id="qrModal">
-  <img id="qrFullImg" alt="QR Code">
-  <p>📌 اضغط مطوّلاً (Long Press) على الصورة فوق، ثم اختر "حفظ الصورة" أو "Save Image" لحفظها في جهازك</p>
-  <button class="btn btn-ghost close-modal" onclick="closeQrModal()">إغلاق</button>
 </div>
 
 <script>
@@ -279,7 +257,6 @@ const CLOUDINARY_UPLOAD_PRESET = "ljkxmauu";
 const TEXT_DIRECT_LIMIT = 900; // بعد هذا الحد تصبح كثافة الكود عالية جداً للمسح المريح
 
 let pickedFiles = [];
-let lastQRDataUrl = null; // آخر صورة QR تم توليدها، تُستخدم فى التحميل والعرض بالحجم الكامل
 
 function updateTextCounter(){
   const len = document.getElementById("textInput").value.length;
@@ -379,11 +356,21 @@ function buildGalleryHTML(items, title, message){
 
   const safeTitle = escapeHTML(title);
   const safeMsg = message ? escapeHTML(message) : "";
+  const ogImage = mediaItems.find(it => it.type === "image");
+  const ogDescription = safeMsg || "اضغط لفتح المفاجأة 🎁";
 
   return `<!DOCTYPE html>
 <html lang="ar" dir="rtl"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${safeTitle}</title>
+<meta property="og:title" content="${safeTitle}">
+<meta property="og:description" content="${ogDescription}">
+${ogImage ? `<meta property="og:image" content="${ogImage.url}">` : ""}
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
+<meta name="twitter:title" content="${safeTitle}">
+<meta name="twitter:description" content="${ogDescription}">
+${ogImage ? `<meta name="twitter:image" content="${ogImage.url}">` : ""}
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;}
@@ -452,22 +439,11 @@ function escapeHTML(str){
   return String(str).replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
 }
 
-/* ---------- توليد الكود: زر واحد ذكي ----------
-   لو فيه صور/فيديوهات مختارة أو تسجيل صوتي، لازم يمرّ عبر مسار الرفع
-   حتى يتضمّن الكود العنوان + الرسالة + الصوت + الصور كلهم في صفحة واحدة.
-   لو مفيش صور ولا صوت، يبقى المقصود إن خانة النص فيها رسالة/رابط جاهز فقط. */
-async function handleGenerate(){
+/* ---------- توليد الكود: دائماً من خانة النص/الرابط فقط ---------- */
+function handleGenerate(){
   resetStatus();
-  const hasFiles = pickedFiles.length > 0;
-  const hasAudio = !!recordedAudioBlob;
-
-  if(hasFiles || hasAudio){
-    await handleMediaUpload();
-    return;
-  }
-
   const text = document.getElementById("textInput").value.trim();
-  if(!text){ setStatus("اكتب رسالة، أو الصق رابطاً، أو اختر صورة/سجّل صوتاً أولاً 🙂", true); return; }
+  if(!text){ setStatus("اكتب رسالة أو الصق رابطاً أولاً 🙂", true); return; }
   renderTicket(text, []);
 }
 
@@ -478,10 +454,6 @@ async function toggleRecording(){
   const btn = document.getElementById("recordBtn");
   if(mediaRecorder && mediaRecorder.state === "recording"){
     mediaRecorder.stop();
-    return;
-  }
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    setStatus("المتصفح رفض إتاحة الميكروفون هنا. غالباً السبب إنك فاتح الملف مباشرة من الجهاز (file://) بدل ما يكون على رابط https. جرّب استضافة الملف على أي سيرفر/استضافة بسيطة، أو افتحه من رابط https بدل الفتح المباشر.", true);
     return;
   }
   try{
@@ -503,7 +475,7 @@ async function toggleRecording(){
     btn.classList.add("recording");
     document.getElementById("audioPreviewBox").style.display = "none";
   }catch(err){
-    setStatus("تعذّر الوصول للميكروفون، تأكد من إعطاء الإذن للمتصفح (على الموبايل قد تحتاج فتح الصفحة في المتصفح مباشرة وليس داخل تطبيق آخر): " + err.message, true);
+    setStatus("تعذّر الوصول للميكروفون، تأكد من إعطاء الإذن للمتصفح: " + err.message, true);
   }
 }
 
@@ -538,12 +510,9 @@ async function handleMediaUpload(){
   }
 
   const uploadBtn = document.getElementById("uploadBtn");
-  const generateBtn = document.getElementById("generateBtn");
-  const eventTitleRaw = document.getElementById("eventTitle").value.trim();
-  const eventTitle = eventTitleRaw || "مناسبة سعيدة";
+  const eventTitle = document.getElementById("eventTitle").value.trim() || "مناسبة سعيدة";
   const personalMessage = document.getElementById("textInput").value.trim();
   uploadBtn.disabled = true;
-  generateBtn.disabled = true;
   setStatus("جاري رفع الملفات... لا تُغلق الصفحة ⏳");
 
   const uploaded = [];
@@ -561,7 +530,6 @@ async function handleMediaUpload(){
       document.getElementById("status-"+i).textContent = "فشل ❌";
       setStatus(`فشل رفع "${file.name}": ${err.message}`, true);
       uploadBtn.disabled = false;
-      generateBtn.disabled = false;
       return;
     }
   }
@@ -576,20 +544,13 @@ async function handleMediaUpload(){
     }catch(err){
       setStatus(`فشل رفع الرسالة الصوتية: ${err.message}`, true);
       uploadBtn.disabled = false;
-      generateBtn.disabled = false;
       return;
     }
   }
 
   let finalLink = uploaded[0].url;
   let backupItems = uploaded;
-  // نبني صفحة "المفاجأة" (تعرض العنوان + الرسالة + الصوت) في أي حالة فيها أكثر من ملف،
-  // أو صوت مسجّل، أو عنوان/رسالة مكتوبة — حتى لو كان الملف صورة واحدة فقط،
-  // وإلا كان العنوان والرسالة والتسجيل الصوتي يضيعوا بدون داعٍ.
-  const needsLandingPage = uploaded.length > 1
-    || uploaded.some(it => it.type === "audio")
-    || personalMessage.length > 0
-    || eventTitleRaw.length > 0;
+  const needsLandingPage = uploaded.length > 1 || uploaded.some(it => it.type === "audio");
 
   if(needsLandingPage){
     setStatus("تم رفع الملفات، جاري تجهيز صفحة المفاجأة...");
@@ -603,12 +564,10 @@ async function handleMediaUpload(){
     }
   }
 
-  // نستبدل محتوى الخانة بالرابط النهائي فقط (بدل الإضافة إليه)
-  // حتى لا تتكرر الرسالة الشخصية داخل الكود لو ضغط المستخدم "اصنع الكود" مرة أخرى
-  document.getElementById("textInput").value = finalLink;
+  const textArea = document.getElementById("textInput");
+  textArea.value = (textArea.value.trim() ? textArea.value.trim() + "\n" : "") + finalLink;
   updateTextCounter();
   uploadBtn.disabled = false;
-      generateBtn.disabled = false;
   renderTicket(finalLink, backupItems);
   document.getElementById("textInput").scrollIntoView({behavior:"smooth", block:"center"});
 }
@@ -617,18 +576,13 @@ function renderTicket(finalData, backupItems){
   document.getElementById("qrcode").innerHTML = "";
   new QRCode(document.getElementById("qrcode"), {
     text: finalData,
-    width: 200,
-    height: 200,
+    width: 260,
+    height: 260,
     colorDark: "#000000",
     colorLight: "#ffffff",
     typeNumber: 0,
-    correctLevel: QRCode.CorrectLevel.L
+    correctLevel: QRCode.CorrectLevel.M
   });
-
-  // نلتقط صورة الكود فور توليدها (من الـ img أو الـ canvas حسب دعم المتصفح)
-  // لاستخدامها لاحقاً فى زر التحميل وزر "عرض بالحجم الكامل"
-  captureQRImage();
-
   document.getElementById("ticketTitle").textContent = "كودك جاهز 🎉";
   document.getElementById("finalLinkText").textContent = finalData.length > 90 ? finalData.slice(0,90)+"…" : finalData;
   document.getElementById("finalLinkText").dataset.full = finalData;
@@ -651,49 +605,27 @@ function renderTicket(finalData, backupItems){
   setStatus("تم بنجاح ✅");
 }
 
-/* تأخير بسيط لضمان اكتمال رسم الكود قبل التقاطه (بعض متصفحات الموبايل تحتاج لحظة إضافية) */
-function captureQRImage(){
-  setTimeout(()=>{
-    const img = document.querySelector("#qrcode img");
-    const canvas = document.querySelector("#qrcode canvas");
-    if(img && img.src){
-      lastQRDataUrl = img.src;
-    }else if(canvas){
-      try{ lastQRDataUrl = canvas.toDataURL("image/png"); }
-      catch(e){ lastQRDataUrl = null; }
-    }else{
-      lastQRDataUrl = null;
-    }
-  }, 60);
-}
-
 function downloadQR(){
-  if(!lastQRDataUrl){ setStatus("اصنع الكود أولاً قبل التحميل", true); return; }
-  try{
-    const link = document.createElement("a");
-    link.href = lastQRDataUrl;
-    link.download = "event-qrcode.png";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setStatus("لو التحميل ما بدأش تلقائياً (شائع على متصفحات الموبايل)، استخدم زر «عرض بالحجم الكامل» تحت واحفظ الصورة بالضغط المطوّل عليها");
-  }catch(err){
-    // فى حال فشل التحميل التلقائي كلياً (شائع داخل تطبيقات مدمجة على الموبايل)، نلجأ مباشرة للنافذة الكاملة
-    openQrModal();
-  }
-}
+  const img = document.querySelector("#qrcode img");
+  if(!img){ setStatus("اصنع الكود أولاً قبل التحميل", true); return; }
 
-/* نافذة العرض بالحجم الكامل — الطريقة الأضمن للحفظ على الموبايل
-   لأنها لا تعتمد على خاصية download التي قد لا تعمل داخل متصفحات
-   أو تطبيقات مدمجة (webview)؛ بدلاً من ذلك يحفظ المستخدم الصورة
-   بالضغط المطوّل عليها، وهي خاصية على مستوى نظام التشغيل تعمل دائماً. */
-function openQrModal(){
-  if(!lastQRDataUrl){ setStatus("اصنع الكود أولاً", true); return; }
-  document.getElementById("qrFullImg").src = lastQRDataUrl;
-  document.getElementById("qrModal").classList.add("show");
-}
-function closeQrModal(){
-  document.getElementById("qrModal").classList.remove("show");
+  // نضيف هامش أبيض حقيقي (Quiet Zone) داخل ملف الصورة نفسه،
+  // لأن بدونه قراءة الكود من صورة ثابتة (زي Google Lens على المعرض) بتفشل غالباً.
+  const margin = 44;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth + margin*2;
+  canvas.height = img.naturalHeight + margin*2;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, margin, margin, img.naturalWidth, img.naturalHeight);
+
+  const link = document.createElement("a");
+  link.href = canvas.toDataURL("image/png");
+  link.download = "event-qrcode.png";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function copyText(text){
