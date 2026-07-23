@@ -196,13 +196,12 @@
       <div class="hint" id="textCounter">0 حرف</div>
     </div>
 
-    <button class="btn btn-main" id="generateBtn" onclick="handleGenerate()">✨ اصنع الكود من الخانة دي</button>
+    <button class="btn btn-main" id="generateBtn" onclick="handleGenerate()">✨ اصنع الكود دلوقتي</button>
     <div id="statusMessage"></div>
 
     <div class="note">
-      💡 <b>ليس عندك رابط جاهز؟</b> رفع الفيديو/الصورة بنفسك أولاً بأي أداة مجانية تفضّلها هو الحل الأكثر استقراراً وغير المرتبط بأداة واحدة:
-      يوتيوب (كفيديو "غير مُدرج / Unlisted")، ألبوم جوجل فوتوز مشترك، رابط مشاركة من جوجل درايف، أو حتى رفعه في قناة تليجرام ونسخ رابط الرسالة.
-      بعدها الصق الرابط في الخانة فوق واضغط "اصنع الكود" — مفيش أي اعتماد على خدمة معيّنة داخل التطبيق نفسه.
+      💡 هذا الزر ذكي: لو مسجّل رسالة صوتية أو مختار صور/فيديوهات تحت 👇، هيرفعهم تلقائياً ويبني صفحة مفاجأة فيها العنوان والرسالة والصوت والصور كلهم مع بعض، ويحط الكود عليها.
+      لو مفيش صور ولا صوت، هياخد اللي مكتوب في الخانة فوق زي ما هو (رسالة نصية، أو رابط جاهز زي يوتيوب/درايف/جوجل فوتوز) ويحوّله لكود مباشرة — من غير اعتماد على خدمة معيّنة داخل التطبيق نفسه.
     </div>
 
     <details class="backup-links" style="margin-top:14px;">
@@ -214,7 +213,8 @@
         </label>
         <input type="file" id="mediaInput" accept="image/*,video/*" multiple onchange="onFilesPicked()">
         <div class="file-list" id="fileList"></div>
-        <button class="btn btn-ghost" id="uploadBtn" onclick="handleMediaUpload()" style="margin-top:12px;">⬆️ ارفع واحصل على رابط تلقائياً</button>
+        <div class="hint" style="margin-top:10px;">✅ اختيار الملفات هنا كفاية. ارجع لزر "اصنع الكود دلوقتي" فوق وهو اللي هيرفعهم وهو اللي هيبني الكود.</div>
+        <button class="btn btn-ghost" id="uploadBtn" onclick="handleGenerate()" style="margin-top:12px;">⬆️ ارفع وابني الكود الآن</button>
 
         <div style="margin-top:18px; padding-top:16px; border-top:1px dashed var(--border);">
           <label>🎤 أو سجّل رسالة صوتية بصوتك (تهنئة، دعوة، أي كلمة تحب توصّلها)</label>
@@ -452,11 +452,22 @@ function escapeHTML(str){
   return String(str).replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
 }
 
-/* ---------- توليد الكود: دائماً من خانة النص/الرابط فقط ---------- */
-function handleGenerate(){
+/* ---------- توليد الكود: زر واحد ذكي ----------
+   لو فيه صور/فيديوهات مختارة أو تسجيل صوتي، لازم يمرّ عبر مسار الرفع
+   حتى يتضمّن الكود العنوان + الرسالة + الصوت + الصور كلهم في صفحة واحدة.
+   لو مفيش صور ولا صوت، يبقى المقصود إن خانة النص فيها رسالة/رابط جاهز فقط. */
+async function handleGenerate(){
   resetStatus();
+  const hasFiles = pickedFiles.length > 0;
+  const hasAudio = !!recordedAudioBlob;
+
+  if(hasFiles || hasAudio){
+    await handleMediaUpload();
+    return;
+  }
+
   const text = document.getElementById("textInput").value.trim();
-  if(!text){ setStatus("اكتب رسالة أو الصق رابطاً أولاً 🙂", true); return; }
+  if(!text){ setStatus("اكتب رسالة، أو الصق رابطاً، أو اختر صورة/سجّل صوتاً أولاً 🙂", true); return; }
   renderTicket(text, []);
 }
 
@@ -467,6 +478,10 @@ async function toggleRecording(){
   const btn = document.getElementById("recordBtn");
   if(mediaRecorder && mediaRecorder.state === "recording"){
     mediaRecorder.stop();
+    return;
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setStatus("المتصفح رفض إتاحة الميكروفون هنا. غالباً السبب إنك فاتح الملف مباشرة من الجهاز (file://) بدل ما يكون على رابط https. جرّب استضافة الملف على أي سيرفر/استضافة بسيطة، أو افتحه من رابط https بدل الفتح المباشر.", true);
     return;
   }
   try{
@@ -523,10 +538,12 @@ async function handleMediaUpload(){
   }
 
   const uploadBtn = document.getElementById("uploadBtn");
+  const generateBtn = document.getElementById("generateBtn");
   const eventTitleRaw = document.getElementById("eventTitle").value.trim();
   const eventTitle = eventTitleRaw || "مناسبة سعيدة";
   const personalMessage = document.getElementById("textInput").value.trim();
   uploadBtn.disabled = true;
+  generateBtn.disabled = true;
   setStatus("جاري رفع الملفات... لا تُغلق الصفحة ⏳");
 
   const uploaded = [];
@@ -544,6 +561,7 @@ async function handleMediaUpload(){
       document.getElementById("status-"+i).textContent = "فشل ❌";
       setStatus(`فشل رفع "${file.name}": ${err.message}`, true);
       uploadBtn.disabled = false;
+      generateBtn.disabled = false;
       return;
     }
   }
@@ -558,6 +576,7 @@ async function handleMediaUpload(){
     }catch(err){
       setStatus(`فشل رفع الرسالة الصوتية: ${err.message}`, true);
       uploadBtn.disabled = false;
+      generateBtn.disabled = false;
       return;
     }
   }
@@ -589,6 +608,7 @@ async function handleMediaUpload(){
   document.getElementById("textInput").value = finalLink;
   updateTextCounter();
   uploadBtn.disabled = false;
+      generateBtn.disabled = false;
   renderTicket(finalLink, backupItems);
   document.getElementById("textInput").scrollIntoView({behavior:"smooth", block:"center"});
 }
