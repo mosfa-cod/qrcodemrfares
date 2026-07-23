@@ -643,19 +643,32 @@ function renderTicket(finalData, backupItems){
 }
 
 function downloadQR(){
-  const img = document.querySelector("#qrcode img");
-  if(!img){ setStatus("اصنع الكود أولاً قبل التحميل", true); return; }
+  const container = document.getElementById("qrcode");
+  const sourceCanvas = container.querySelector("canvas");
+  const sourceImg = container.querySelector("img");
+
+  // نفضّل نسحب الصورة من الـ canvas الأصلي اللي بترسمه المكتبة مباشرة (فيه بيانات مضمونة دايماً)،
+  // بدل عنصر <img> المساعد اللي ممكن يفضل فاضي لحظياً بسبب فرق توقيت داخلي في المكتبة.
+  let sourceEl, w, h;
+  if(sourceCanvas && sourceCanvas.width > 0){
+    sourceEl = sourceCanvas; w = sourceCanvas.width; h = sourceCanvas.height;
+  }else if(sourceImg && sourceImg.naturalWidth > 0){
+    sourceEl = sourceImg; w = sourceImg.naturalWidth; h = sourceImg.naturalHeight;
+  }else{
+    setStatus("الكود لسه ما اتجهزش تماماً، استنى ثانية وجرّب التحميل تاني", true);
+    return;
+  }
 
   // نضيف هامش أبيض حقيقي (Quiet Zone) داخل ملف الصورة نفسه،
   // لأن بدونه قراءة الكود من صورة ثابتة (زي Google Lens على المعرض) بتفشل غالباً.
   const margin = 44;
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth + margin*2;
-  canvas.height = img.naturalHeight + margin*2;
+  canvas.width = w + margin*2;
+  canvas.height = h + margin*2;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, margin, margin, img.naturalWidth, img.naturalHeight);
+  ctx.drawImage(sourceEl, margin, margin, w, h);
 
   const link = document.createElement("a");
   link.href = canvas.toDataURL("image/png");
