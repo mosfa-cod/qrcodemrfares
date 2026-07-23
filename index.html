@@ -155,10 +155,38 @@
   .note b{ color:var(--gold); }
 
   footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:26px; }
+
+  /* ---------- وضع العرض (صفحة المفاجأة) ---------- */
+  .v-stage{
+    display:none; min-height:100vh; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px 16px; text-align:center;
+  }
+  .v-gift{ cursor:pointer; user-select:none; }
+  .v-emoji{ font-size:70px; animation:float 2.2s ease-in-out infinite; }
+  @keyframes float{ 0%,100%{transform:translateY(0) rotate(-3deg);} 50%{transform:translateY(-14px) rotate(3deg);} }
+  .v-title{ font-family:'Baloo Bhaijaan 2','Cairo',sans-serif; font-size:26px; margin:14px 0 6px; }
+  .v-msg{ color:#d8cdf5; max-width:520px; margin:0 auto 8px; font-size:14.5px; line-height:1.8; }
+  .v-tap{ margin-top:16px; font-weight:800; color:var(--gold); font-size:15px; }
+  .v-content{ display:none; width:100%; max-width:960px; }
+  .voice-card{
+    background:linear-gradient(135deg, rgba(255,111,145,.16), rgba(244,185,62,.14));
+    border:1px solid var(--border); border-radius:18px; padding:16px; margin-bottom:20px; text-align:center;
+  }
+  .voice-label{ font-weight:800; margin-bottom:10px; }
+  .voice-card audio{ width:100%; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+  .m-card{
+    background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden;
+    opacity:0; transform:scale(.92); animation:cardIn .5s ease forwards;
+  }
+  .m-card img, .m-card video{ width:100%; display:block; max-height:420px; object-fit:contain; background:#000; }
+  @keyframes cardIn{ to{ opacity:1; transform:scale(1); } }
+  .confetti{ position:fixed; top:-10px; width:8px; height:14px; border-radius:2px; pointer-events:none; animation:fall linear forwards; z-index:5; }
+  @keyframes fall{ to{ transform:translateY(110vh) rotate(540deg); opacity:.9; } }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="creatorApp">
 
   <header>
     <span class="eyebrow">🎉 صنع في حب فارس لأجمل المناسبات</span>
@@ -212,8 +240,8 @@
           </div>
         </div>
         <div class="hint" style="margin-top:8px;">
-          هذه الخطوة اختيارية فقط لمن لا يملك مكان رفع خاص به. الخدمة (Firebase Storage) بتوفّر 5GB تخزين
-          و1GB تنزيل يومياً مجاناً، فمناسبة لمعظم الاستخدامات العادية. أي نص كتبته في الخانة فوق قبل الرفع (زي "كل سنة وانت طيب يا يوسف")
+          هذه الخطوة اختيارية فقط لمن لا يملك مكان رفع خاص به. الخدمة (Supabase Storage) بتوفّر 1GB تخزين
+          و5GB نقل بيانات شهرياً مجاناً وبدون بطاقة بنكية — كافية لمعظم الاستخدامات العادية. أي نص كتبته في الخانة فوق قبل الرفع (زي "كل سنة وانت طيب يا يوسف")
           هيتحوّل تلقائياً لرسالة ترحيب في صفحة المفاجأة، وهيتحط رابطها في خانة النص وتقدر تعدّل عليه بعدين.
         </div>
       </div>
@@ -247,12 +275,33 @@
   <footer>✨ صنع في حب فارس لأجمل المناسبات</footer>
 </div>
 
+<!-- وضع العرض: لما حد يمسح الكود، الصفحة دي بتظهر بدل صفحة الإنشاء -->
+<div class="v-stage" id="viewerApp">
+  <div class="v-gift" id="vGiftBtn">
+    <div class="v-emoji">🎁</div>
+    <h1 class="v-title" id="vTitle">مفاجأة لك</h1>
+    <p class="v-msg" id="vMsg" style="display:none;"></p>
+    <div class="v-tap">👆 اضغط لفتح المفاجأة</div>
+  </div>
+  <div class="v-content" id="vContent">
+    <div class="voice-card" id="vVoiceCard" style="display:none;">
+      <div class="voice-label">🎧 رسالة صوتية من المُرسل</div>
+      <audio id="vVoiceAudio" controls></audio>
+    </div>
+    <div class="grid" id="vGrid"></div>
+  </div>
+  <footer style="margin-top:26px;">✨ صنع في حب فارس لأجمل المناسبات</footer>
+</div>
+
 <script>
-/* ================== إعدادات Firebase Storage ==================
-   حط قيمة storageBucket بتاعة مشروعك هنا (تلاقيها في: إعدادات المشروع → General → Your apps → firebaseConfig).
-   شكلها عادة: "اسم-المشروع.appspot.com"
-   وتأكد إن قواعد الأمان (Storage Rules) مضبوطة على السماح بالقراءة/الكتابة تحت مسار qr-events/ */
-const FIREBASE_STORAGE_BUCKET = "اكتب_هنا_storageBucket_بتاعك";
+/* ================== إعدادات Supabase Storage ==================
+   هاتها من: لوحة تحكم مشروعك في supabase.com → Project Settings → API
+   - SUPABASE_URL: "Project URL" (شكلها https://xxxxxxxx.supabase.co)
+   - SUPABASE_ANON_KEY: مفتاح "anon public" (مش الـ service_role الخاص!)
+   وتأكد إنك عملت Bucket اسمه qr-events وخليته Public، وضبطت الـ Policies زي الشرح. */
+const SUPABASE_URL = "https://yqrktuviuxpkywbutcik.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_5ThREEnhDFrikx-s_gVrDQ_QjirFGhP";
+const SUPABASE_BUCKET = "qr-events";
 
 const TEXT_DIRECT_LIMIT = 900; // بعد هذا الحد تصبح كثافة الكود عالية جداً للمسح المريح
 
@@ -300,145 +349,139 @@ function removeFile(idx){
   renderFileList();
 }
 
-/* ---------- رفع ملف واحد إلى Firebase Storage مع تتبع التقدّم (عبر REST API مباشرة، بدون أي SDK) ---------- */
-function uploadToFirebase(file, pathPrefix, onProgress){
+/* ---------- رفع ملف واحد إلى Supabase Storage مع تتبع التقدّم (عبر REST API مباشرة، بدون أي SDK) ---------- */
+function uploadToSupabase(file, onProgress){
   return new Promise((resolve, reject)=>{
-    if(!FIREBASE_STORAGE_BUCKET || FIREBASE_STORAGE_BUCKET.includes("اكتب_هنا")){
-      reject(new Error("لسه ماحطتش storageBucket بتاع مشروع Firebase في أعلى الكود"));
+    if(!SUPABASE_URL || SUPABASE_URL.includes("اكتب_هنا") || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("اكتب_هنا")){
+      reject(new Error("لسه ماحطتش بيانات Supabase (URL أو anon key) في أعلى الكود"));
       return;
     }
     const safeName = `${Date.now()}-${file.name}`.replace(/[^\w.\-\u0600-\u06FF]/g, "_");
-    const fullPath = `${pathPrefix}/${safeName}`;
-    const encodedPath = encodeURIComponent(fullPath);
-    const url = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o?uploadType=media&name=${encodedPath}`;
+    const url = `${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${safeName}`;
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
+    xhr.setRequestHeader("apikey", SUPABASE_ANON_KEY);
+    xhr.setRequestHeader("Authorization", `Bearer ${SUPABASE_ANON_KEY}`);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (e)=>{
       if(e.lengthComputable && onProgress) onProgress(Math.round((e.loaded/e.total)*100));
     };
     xhr.onload = ()=>{
       if(xhr.status >= 200 && xhr.status < 300){
-        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodedPath}?alt=media`;
+        const downloadUrl = `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${safeName}`;
         resolve(downloadUrl);
       }else{
         let apiMsg = xhr.responseText.slice(0,200);
-        try{ apiMsg = JSON.parse(xhr.responseText).error.message; }catch(e){}
+        try{ apiMsg = JSON.parse(xhr.responseText).message || apiMsg; }catch(e){}
         reject(new Error(`(HTTP ${xhr.status}) ${apiMsg}`));
       }
     };
     xhr.onerror = ()=> reject(new Error(
-      "تعذّر الوصول لسيرفر Firebase Storage إطلاقاً (قبل أي رد HTTP). الأسباب الشائعة: " +
-      "1) storageBucket غلط. " +
-      "2) قواعد الأمان (Rules) في Storage مش بتسمح بالكتابة على مسار qr-events/. " +
-      "3) لا يوجد اتصال إنترنت مستقر."
+      "تعذّر الوصول لسيرفر Supabase إطلاقاً (قبل أي رد HTTP). الأسباب الشائعة: " +
+      "1) رابط المشروع أو الـ anon key غلط. " +
+      "2) الـ Bucket اسمه مختلف عن qr-events أو مش Public. " +
+      "3) المشروع متوقف مؤقتاً (Paused) بسبب عدم الاستخدام لمدة أسبوع — ادخل لوحة تحكم Supabase وفعّله. " +
+      "4) لا يوجد اتصال إنترنت مستقر."
     ));
     xhr.send(file);
   });
 }
 
-/* ---------- بناء صفحة "المفاجأة" التفاعلية (صوت + صور + فيديوهات) ---------- */
-function buildGalleryHTML(items, title, message){
-  const audioItem = items.find(it => it.type === "audio");
-  const mediaItems = items.filter(it => it.type !== "audio");
-
-  const audioCard = audioItem ? `
-    <div class="voice-card">
-      <div class="voice-label">🎧 رسالة صوتية من المُرسل</div>
-      <audio id="voiceMsg" controls src="${audioItem.url}"></audio>
-    </div>` : "";
-
-  const cards = mediaItems.map(it=>{
-    if(it.type === "video"){
-      return `<div class="m-card"><video controls preload="metadata" src="${it.url}"></video></div>`;
-    }
-    return `<div class="m-card"><img src="${it.url}" loading="lazy"></div>`;
-  }).join("\n");
-
-  const safeTitle = escapeHTML(title);
-  const safeMsg = message ? escapeHTML(message) : "";
-  const ogImage = mediaItems.find(it => it.type === "image");
-  const ogDescription = safeMsg || "اضغط لفتح المفاجأة 🎁";
-
-  return `<!DOCTYPE html>
-<html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${safeTitle}</title>
-<meta property="og:title" content="${safeTitle}">
-<meta property="og:description" content="${ogDescription}">
-${ogImage ? `<meta property="og:image" content="${ogImage.url}">` : ""}
-<meta property="og:type" content="website">
-<meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
-<meta name="twitter:title" content="${safeTitle}">
-<meta name="twitter:description" content="${ogDescription}">
-${ogImage ? `<meta name="twitter:image" content="${ogImage.url}">` : ""}
-<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:'Cairo',sans-serif;background:#170f2e;color:#f7f3ff;min-height:100vh;overflow-x:hidden;}
-  h1{text-align:center;font-family:'Baloo Bhaijaan 2',sans-serif;font-size:26px;margin:14px 0 6px;}
-  p.msg{text-align:center;color:#d8cdf5;max-width:520px;margin:0 auto 8px;font-size:14.5px;line-height:1.8;}
-  .stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;}
-  .gift{cursor:pointer;text-align:center;user-select:none;}
-  .gift .emoji{font-size:70px;animation:float 2.2s ease-in-out infinite;}
-  .gift .tap{margin-top:16px;font-weight:800;color:#f4b93e;font-size:15px;}
-  @keyframes float{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-14px) rotate(3deg);}}
-  .content{display:none;width:100%;max-width:960px;}
-  .voice-card{background:linear-gradient(135deg, rgba(255,111,145,.16), rgba(244,185,62,.14));border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:16px;margin-bottom:20px;text-align:center;}
-  .voice-label{font-weight:800;margin-bottom:10px;}
-  .voice-card audio{width:100%;}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
-  .m-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:16px;overflow:hidden;opacity:0;transform:scale(.92);animation:cardIn .5s ease forwards;}
-  .m-card img,.m-card video{width:100%;display:block;max-height:420px;object-fit:contain;background:#000;}
-  @keyframes cardIn{to{opacity:1;transform:scale(1);}}
-  footer{text-align:center;color:#8f80b8;font-size:12px;margin-top:26px;}
-  .confetti{position:fixed;top:-10px;width:8px;height:14px;border-radius:2px;pointer-events:none;animation:fall linear forwards;z-index:5;}
-  @keyframes fall{to{transform:translateY(110vh) rotate(540deg);opacity:.9;}}
-</style></head>
-<body>
-<div class="stage">
-  <div class="gift" id="giftBtn" onclick="openSurprise()">
-    <div class="emoji">🎁</div>
-    <h1>${safeTitle}</h1>
-    ${safeMsg ? `<p class="msg">${safeMsg}</p>` : ""}
-    <div class="tap">👆 اضغط لفتح المفاجأة</div>
-  </div>
-  <div class="content" id="content">
-    ${audioCard}
-    <div class="grid">${cards}</div>
-  </div>
-</div>
-<footer>✨ صنع في حب فارس لأجمل المناسبات</footer>
-<script>
-  function openSurprise(){
-    document.getElementById("giftBtn").style.display = "none";
-    var content = document.getElementById("content");
-    content.style.display = "block";
-    document.querySelectorAll(".m-card").forEach(function(el, i){ el.style.animationDelay = (i*0.08) + "s"; });
-    burstConfetti();
-    var audioEl = document.getElementById("voiceMsg");
-    if(audioEl){ audioEl.play().catch(function(){}); }
-  }
-  function burstConfetti(){
-    var colors = ["#f4b93e","#ff6f91","#34d399","#7c9dff"];
-    for(var i=0;i<36;i++){
-      var d = document.createElement("div");
-      d.className = "confetti";
-      d.style.left = (Math.random()*100) + "vw";
-      d.style.background = colors[i % colors.length];
-      d.style.animationDuration = (2.2 + Math.random()*1.4) + "s";
-      d.style.animationDelay = (Math.random()*0.4) + "s";
-      document.body.appendChild(d);
-      setTimeout((function(el){ return function(){ el.remove(); }; })(d), 4200);
-    }
-  }
-<\/script>
-</body></html>`;
+/* ---------- ترميز/فك ترميز آمن للنصوص داخل الرابط (Base64Url) ---------- */
+function b64urlEncode(str){
+  return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function b64urlDecode(str){
+  str = str.replace(/-/g,"+").replace(/_/g,"/");
+  while(str.length % 4) str += "=";
+  return decodeURIComponent(escape(atob(str)));
 }
 
-function escapeHTML(str){
-  return String(str).replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
+/* ---------- بناء رابط "صفحة المفاجأة" اللي بيرجّع لنفس الموقع بمعلومات الوسائط في الرابط نفسه ---------- */
+function buildViewerLink(items, title, message){
+  const compact = items.map(it => [it.url, it.type === "video" ? "v" : (it.type === "audio" ? "a" : "i")]);
+  const params = new URLSearchParams();
+  params.set("t", title);
+  if(message) params.set("m", message);
+  params.set("items", b64urlEncode(JSON.stringify(compact)));
+  const base = location.origin + location.pathname;
+  return `${base}?${params.toString()}`;
+}
+
+/* ---------- وضع العرض: لو الصفحة اتفتحت برابط فيه بيانات مفاجأة، اعرضها بدل واجهة الإنشاء ---------- */
+function tryInitViewer(){
+  const params = new URLSearchParams(location.search);
+  if(!params.has("items")) return false;
+  try{
+    const title = params.get("t") || "مفاجأة لك 🎁";
+    const message = params.get("m") || "";
+    const items = JSON.parse(b64urlDecode(params.get("items")));
+    renderViewer(title, message, items);
+    return true;
+  }catch(err){
+    console.error("تعذّر قراءة بيانات المفاجأة من الرابط:", err);
+    return false;
+  }
+}
+
+function renderViewer(title, message, items){
+  document.getElementById("creatorApp").style.display = "none";
+  const viewer = document.getElementById("viewerApp");
+  viewer.style.display = "flex";
+  document.title = title;
+  document.getElementById("vTitle").textContent = title;
+  if(message){
+    const msgEl = document.getElementById("vMsg");
+    msgEl.textContent = message;
+    msgEl.style.display = "block";
+  }
+
+  const audioItem = items.find(it => it[1] === "a");
+  const mediaItems = items.filter(it => it[1] !== "a");
+
+  if(audioItem){
+    document.getElementById("vVoiceCard").style.display = "block";
+    document.getElementById("vVoiceAudio").src = audioItem[0];
+  }
+
+  const grid = document.getElementById("vGrid");
+  grid.innerHTML = "";
+  mediaItems.forEach((it, i)=>{
+    const div = document.createElement("div");
+    div.className = "m-card";
+    div.style.animationDelay = (i*0.08) + "s";
+    if(it[1] === "v"){
+      div.innerHTML = `<video controls preload="metadata" src="${it[0]}"></video>`;
+    }else{
+      div.innerHTML = `<img src="${it[0]}" loading="lazy">`;
+    }
+    grid.appendChild(div);
+  });
+
+  document.getElementById("vGiftBtn").addEventListener("click", openViewerSurprise);
+}
+
+function openViewerSurprise(){
+  document.getElementById("vGiftBtn").style.display = "none";
+  document.getElementById("vContent").style.display = "block";
+  burstConfetti();
+  const audioEl = document.getElementById("vVoiceAudio");
+  if(audioEl && audioEl.src){ audioEl.play().catch(()=>{}); }
+}
+
+function burstConfetti(){
+  const colors = ["#f4b93e","#ff6f91","#34d399","#7c9dff"];
+  for(let i=0;i<36;i++){
+    const d = document.createElement("div");
+    d.className = "confetti";
+    d.style.left = (Math.random()*100) + "vw";
+    d.style.background = colors[i % colors.length];
+    d.style.animationDuration = (2.2 + Math.random()*1.4) + "s";
+    d.style.animationDelay = (Math.random()*0.4) + "s";
+    document.body.appendChild(d);
+    setTimeout(()=> d.remove(), 4200);
+  }
 }
 
 /* ---------- توليد الكود: دائماً من خانة النص/الرابط فقط ---------- */
@@ -506,8 +549,8 @@ async function handleMediaUpload(){
   const hasFiles = pickedFiles.length > 0;
   const hasAudio = !!recordedAudioBlob;
   if(!hasFiles && !hasAudio){ setStatus("اختر ملفاً أو سجّل رسالة صوتية أولاً", true); return; }
-  if(!FIREBASE_STORAGE_BUCKET || FIREBASE_STORAGE_BUCKET.includes("اكتب_هنا")){
-    setStatus("برجاء ضبط storageBucket بتاع Firebase في أعلى الكود أولاً", true);
+  if(!SUPABASE_URL || SUPABASE_URL.includes("اكتب_هنا") || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("اكتب_هنا")){
+    setStatus("برجاء ضبط بيانات Supabase في أعلى الكود أولاً", true);
     return;
   }
 
@@ -523,7 +566,7 @@ async function handleMediaUpload(){
     const type = file.type.startsWith("video") ? "video" : "image";
     document.getElementById("status-"+i).textContent = "جاري الرفع...";
     try{
-      const url = await uploadToFirebase(file, "qr-events", (pct)=>{
+      const url = await uploadToSupabase(file, (pct)=>{
         document.getElementById("bar-"+i).style.width = pct + "%";
       });
       document.getElementById("status-"+i).textContent = "تم ✅";
@@ -540,7 +583,7 @@ async function handleMediaUpload(){
     setStatus("جاري رفع الرسالة الصوتية...");
     try{
       const audioFile = new File([recordedAudioBlob], `voice-${Date.now()}.webm`, {type:"audio/webm"});
-      const url = await uploadToFirebase(audioFile, "qr-events", null);
+      const url = await uploadToSupabase(audioFile, null);
       uploaded.push({url, type:"audio", name:"رسالة صوتية"});
     }catch(err){
       setStatus(`فشل رفع الرسالة الصوتية: ${err.message}`, true);
@@ -554,15 +597,8 @@ async function handleMediaUpload(){
   const needsLandingPage = uploaded.length > 1 || uploaded.some(it => it.type === "audio");
 
   if(needsLandingPage){
-    setStatus("تم رفع الملفات، جاري تجهيز صفحة المفاجأة...");
-    try{
-      const galleryHTML = buildGalleryHTML(uploaded, eventTitle, personalMessage);
-      const blob = new Blob([galleryHTML], {type:"text/html"});
-      const galleryFile = new File([blob], `surprise-${Date.now()}.html`, {type:"text/html"});
-      finalLink = await uploadToFirebase(galleryFile, "qr-events", null);
-    }catch(err){
-      setStatus("تعذّر إنشاء صفحة المفاجأة، تم استخدام رابط أول ملف بدلاً منها (باقي الروابط تحت)", true);
-    }
+    // بناء رابط "صفحة المفاجأة" بيرجّع لنفس موقعك، بدون رفع أي ملف HTML لأي خدمة تخزين
+    finalLink = buildViewerLink(uploaded, eventTitle, personalMessage);
   }
 
   const textArea = document.getElementById("textInput");
@@ -639,6 +675,9 @@ function setStatus(msg, isBad){
   el.className = isBad ? "bad" : "";
 }
 function resetStatus(){ setStatus(""); }
+
+/* لو الصفحة اتفتحت من رابط مفاجأة (بعد مسح كود صور/فيديو/صوت متعددة)، اعرض المفاجأة بدل واجهة الإنشاء */
+tryInitViewer();
 </script>
 </body>
 </html>
